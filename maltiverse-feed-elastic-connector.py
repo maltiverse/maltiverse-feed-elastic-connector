@@ -73,7 +73,7 @@ if not es.indices.exists(index=arguments.elastic_index):
     f = open ('mappings.json', "r")
     # Reading from file
     mapping = json.loads(f.read())
-    es.indices.create(index=arguments.elastic_index, ignore=400, query=mapping)
+    es.indices.create(index=arguments.elastic_index, ignore=400, body=mapping)
 
 COUNT_IP_CREATED = 0
 COUNT_IP_UPDATED = 0
@@ -137,6 +137,7 @@ for element in elements:
     ecs_obj['ecs.version'] = ECS_VERSION
     ecs_obj['event.category'] = "threat"
     ecs_obj['event.type'] = "indicator"
+    ecs_obj['event.dataset'] = "ti_maltiverse"
 
     ecs_obj['threat.indicator.dataset'] = COLL_OBJ['name']
     ecs_obj['threat.indicator.marking.tlp'] = "White"
