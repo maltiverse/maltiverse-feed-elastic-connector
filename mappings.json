@@ -12,11 +12,52 @@
             }
           }
         },
+        "event": {
+          "properties": {
+            "agent_id_status": {
+              "type": "keyword",
+              "ignore_above": 1024
+            },
+            "category": {
+              "type": "keyword",
+              "ignore_above": 1024
+            },
+            "created": {
+              "type": "date"
+            },
+            "dataset": {
+              "type": "constant_keyword",
+              "value": "ti_maltiverse"
+            },
+            "ingested": {
+              "type": "date",
+              "format": "strict_date_time_no_millis||strict_date_optional_time||epoch_millis"
+            },
+            "kind": {
+              "type": "constant_keyword",
+              "value": "enrichment"
+            },
+            "module": {
+              "type": "constant_keyword",
+              "value": "ti_maltiverse"
+            },
+            "original": {
+              "type": "keyword",
+              "index": false,
+              "doc_values": false,
+              "ignore_above": 1024
+            },
+            "type": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        },
         "tags": {
           "type": "keyword",
           "ignore_above": 1024
         },
-        "threatintel": {
+        "threat": {
           "properties": {
             "abusemalware": {
               "properties": {

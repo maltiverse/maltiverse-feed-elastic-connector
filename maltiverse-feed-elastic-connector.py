@@ -2,7 +2,7 @@
 
 # -----------------------------------------------------------
 # Python client that retrieves a feed from Maltiverse.com
-# Stores results in Elastic database under Elastic Common Schema 1.6 convention
+# Stores results in Elastic database under Elastic Common Schema 8.0.0 convention
 #
 # (C) 2021 Maltiverse
 # Released under GNU Public License (GPL)
@@ -14,6 +14,8 @@ from urllib.parse import urlparse
 from datetime import datetime, timedelta
 from elasticsearch import Elasticsearch
 import requests
+
+ECS_VERSION = "8.0.0"
 
 parser = argparse.ArgumentParser()
 
@@ -62,8 +64,8 @@ HEADERS = None
 
 # Create elastic connection
 es = Elasticsearch(
-    [arguments.elastic_host],
-    http_auth=(arguments.elastic_username, arguments.elastic_password),
+        [arguments.elastic_host],
+        basic_auth=(arguments.elastic_username, arguments.elastic_password),
     )
 
 
@@ -71,7 +73,7 @@ if not es.indices.exists(index=arguments.elastic_index):
     f = open ('mappings.json', "r")
     # Reading from file
     mapping = json.loads(f.read())
-    es.indices.create(index=arguments.elastic_index, ignore=400, body=mapping)
+    es.indices.create(index=arguments.elastic_index, ignore=400, query=mapping)
 
 COUNT_IP_CREATED = 0
 COUNT_IP_UPDATED = 0
@@ -132,22 +134,26 @@ for element in elements:
     description_string = ""
 
     ecs_obj = {}
-    ecs_obj['threatintel.indicator.dataset'] = COLL_OBJ['name']
-    ecs_obj['threatintel.indicator.marking.tlp'] = "White"
+    ecs_obj['ecs.version'] = ECS_VERSION
+    ecs_obj['event.category'] = "threat"
+    ecs_obj['event.type'] = "indicator"
+
+    ecs_obj['threat.indicator.dataset'] = COLL_OBJ['name']
+    ecs_obj['threat.indicator.marking.tlp'] = "White"
     if element.get('tag'):
         ecs_obj['tags'] = element['tag']
 
     if element['type'] == 'ip':
-        ecs_obj['threatintel.indicator.type'] = "ipv4-addr"
-        ecs_obj['threatintel.indicator.ip'] = element['ip_addr']
-        ecs_obj['threatintel.indicator.reference'] = "https://maltiverse.com/ip/" + element['ip_addr']
+        ecs_obj['threat.indicator.type'] = "ipv4-addr"
+        ecs_obj['threat.indicator.ip'] = element['ip_addr']
+        ecs_obj['threat.indicator.reference'] = "https://maltiverse.com/ip/" + element['ip_addr']
         if element.get('as_name'):
-            ecs_obj['threatintel.indicator.as.number'] = element.get('as_name').split(' ')[0]
-            ecs_obj['threatintel.indicator.as.organization.name'] = element.get('threatintel.indicator.as.organization.name', element.get('as_name').split(' ')[1])
-        ecs_obj['threatintel.indicator.geo.city_name'] = element.get('city')
-        ecs_obj['threatintel.indicator.geo.country_iso_code'] = element.get('country_code')
+            ecs_obj['threat.indicator.as.number'] = element.get('as_name').split(' ')[0].replace("AS","")
+            ecs_obj['threat.indicator.as.organization.name'] = element.get('threat.indicator.as.organization.name', element.get('as_name').split(' ')[1])
+        ecs_obj['threat.indicator.geo.city_name'] = element.get('city')
+        ecs_obj['threat.indicator.geo.country_iso_code'] = element.get('country_code')
         if element.get('location'):
-            ecs_obj['threatintel.indicator.geo.location'] = {
+            ecs_obj['threat.indicator.geo.location'] = {
                 'lon': element['location']['lon'],
                 'lat': element['location']['lat'],
             }
@@ -161,12 +167,12 @@ for element in elements:
                 # Skipping entries that are out of time window
                 continue
 
-            ecs_obj['threatintel.indicator.first_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ecs_obj['threatintel.indicator.last_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ecs_obj['@timestamp'] = ecs_obj['threatintel.indicator.last_seen']
-            ecs_obj['threatintel.indicator.sightings'] = bl.get('count', 1)
-            ecs_obj['threatintel.indicator.description'] = bl['description']
-            ecs_obj['threatintel.indicator.provider'] = bl['source']
+            ecs_obj['threat.indicator.first_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['threat.indicator.last_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['@timestamp'] = ecs_obj['threat.indicator.last_seen']
+            ecs_obj['threat.indicator.sightings'] = bl.get('count', 1)
+            ecs_obj['threat.indicator.description'] = bl['description']
+            ecs_obj['threat.indicator.provider'] = bl['source']
 
             existing_document_id = None
             insert = True
@@ -176,9 +182,9 @@ for element in elements:
                         "filter": {
                             "bool": {
                                 "must": [
-                                    { "term":  { "threatintel.indicator.ip": element['ip_addr'] }},
-                                    { "term": { "threatintel.indicator.description.keyword" : bl['description'] }},
-                                    { "term": { "threatintel.indicator.provider.keyword" : bl['source'] }}
+                                    { "term":  { "threat.indicator.ip": element['ip_addr'] }},
+                                    { "term": { "threat.indicator.description.keyword" : bl['description'] }},
+                                    { "term": { "threat.indicator.provider.keyword" : bl['source'] }}
                                 ]
                             }
                         }
@@ -193,6 +199,7 @@ for element in elements:
                         existing_document_id = response['hits']['hits'][0]['_id']
 
             if insert:
+                print(ecs_obj)
                 res = es.index(index=arguments.elastic_index, document=ecs_obj, id=existing_document_id)
                 if res['result'] == 'created':
                     COUNT_IP_CREATED += 1
@@ -207,16 +214,16 @@ for element in elements:
                 print("Skipped: " + element.get('ip_addr') + " - " + bl['description'] +  " - " + bl['source'])
 
     if element['type'] == 'hostname':
-        ecs_obj['threatintel.indicator.type'] = "domain-name"
-        ecs_obj['threatintel.indicator.url.domain'] = element.get('hostname')
+        ecs_obj['threat.indicator.type'] = "domain-name"
+        ecs_obj['threat.indicator.url.domain'] = element.get('hostname')
         if element.get('domain'):
-            ecs_obj['threatintel.indicator.url.registered_domain'] = element.get('domain')
+            ecs_obj['threat.indicator.url.registered_domain'] = element.get('domain')
         if element.get('tld'):
-            ecs_obj['threatintel.indicator.url.top_level_domain'] = element.get('tld')
-        ecs_obj['threatintel.indicator.reference'] = "https://maltiverse.com/hostname/" + element.get('hostname')
+            ecs_obj['threat.indicator.url.top_level_domain'] = element.get('tld')
+        ecs_obj['threat.indicator.reference'] = "https://maltiverse.com/hostname/" + element.get('hostname')
         if element.get('as_name'):
-            ecs_obj['threatintel.indicator.as.number'] = element.get('as_name').split(' ')[0]
-            ecs_obj['threatintel.indicator.as.organization.name'] = element.get('threatintel.indicator.as.organization.name', element.get('as_name').split(' ')[1])
+            ecs_obj['threat.indicator.as.number'] = element.get('as_name').split(' ')[0].replace("AS","")
+            ecs_obj['threat.indicator.as.organization.name'] = element.get('threat.indicator.as.organization.name', element.get('as_name').split(' ')[1])
 
         for bl in element['blacklist']:
             expiration_date = datetime.utcnow() - timedelta(days=int(COLL_OBJ['range'].replace("now-", "").replace("d","")))
@@ -227,12 +234,12 @@ for element in elements:
                 # Skipping entries that are out of time window
                 continue
 
-            ecs_obj['threatintel.indicator.first_seen'] = datetime.strptime(bl.get('first_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ecs_obj['threatintel.indicator.last_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ecs_obj['@timestamp'] = ecs_obj['threatintel.indicator.last_seen']
-            ecs_obj['threatintel.indicator.sightings'] = bl.get('count', 1)
-            ecs_obj['threatintel.indicator.description'] = bl['description']
-            ecs_obj['threatintel.indicator.provider'] = bl['source']
+            ecs_obj['threat.indicator.first_seen'] = datetime.strptime(bl.get('first_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['threat.indicator.last_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['@timestamp'] = ecs_obj['threat.indicator.last_seen']
+            ecs_obj['threat.indicator.sightings'] = bl.get('count', 1)
+            ecs_obj['threat.indicator.description'] = bl['description']
+            ecs_obj['threat.indicator.provider'] = bl['source']
 
             existing_document_id = None
             insert = True
@@ -242,9 +249,9 @@ for element in elements:
                         "filter": {
                             "bool": {
                                 "must": [
-                                    { "term": { "threatintel.indicator.url.domain.keyword": element.get('hostname') }},
-                                    { "term": { "threatintel.indicator.description.keyword" : bl['description'] }},
-                                    { "term": { "threatintel.indicator.provider.keyword" : bl['source'] }}
+                                    { "term": { "threat.indicator.url.domain.keyword": element.get('hostname') }},
+                                    { "term": { "threat.indicator.description.keyword" : bl['description'] }},
+                                    { "term": { "threat.indicator.provider.keyword" : bl['source'] }}
                                 ]
                             }
                         }
@@ -276,19 +283,19 @@ for element in elements:
                 print("Skipped: " + element.get('hostname') + " - " + bl['description'] +  " - " + bl['source'])
 
     if element['type'] == 'url':
-        ecs_obj['threatintel.indicator.type'] = "url"
-        ecs_obj['threatintel.indicator.url.full'] = element.get('url')
-        ecs_obj['threatintel.indicator.url.original'] = element.get('url')
+        ecs_obj['threat.indicator.type'] = "url"
+        ecs_obj['threat.indicator.url.full'] = element.get('url')
+        ecs_obj['threat.indicator.url.original'] = element.get('url')
         parsed_url = urlparse(element.get('url')) # prints www.website.com
         if parsed_url.port:
-            ecs_obj['threatintel.indicator.url.port'] = parsed_url.port
+            ecs_obj['threat.indicator.url.port'] = parsed_url.port
         if parsed_url.scheme:
-            ecs_obj['threatintel.indicator.url.scheme'] = parsed_url.scheme
+            ecs_obj['threat.indicator.url.scheme'] = parsed_url.scheme
         if element.get('domain'):
-            ecs_obj['threatintel.indicator.url.registered_domain'] = element.get('domain')
+            ecs_obj['threat.indicator.url.registered_domain'] = element.get('domain')
         if element.get('tld'):
-            ecs_obj['threatintel.indicator.url.top_level_domain'] = element.get('tld')
-        ecs_obj['threatintel.indicator.reference'] = "https://maltiverse.com/url/" + element.get('urlchecksum')
+            ecs_obj['threat.indicator.url.top_level_domain'] = element.get('tld')
+        ecs_obj['threat.indicator.reference'] = "https://maltiverse.com/url/" + element.get('urlchecksum')
 
         for bl in element['blacklist']:
             expiration_date = datetime.utcnow() - timedelta(days=int(COLL_OBJ['range'].replace("now-", "").replace("d","")))
@@ -299,12 +306,12 @@ for element in elements:
                 # Skipping entries that are out of time window
                 continue
 
-            ecs_obj['threatintel.indicator.first_seen'] = datetime.strptime(bl.get('first_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ecs_obj['threatintel.indicator.last_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ecs_obj['@timestamp'] = ecs_obj['threatintel.indicator.last_seen']
-            ecs_obj['threatintel.indicator.sightings'] = bl.get('count', 1)
-            ecs_obj['threatintel.indicator.description'] = bl['description']
-            ecs_obj['threatintel.indicator.provider'] = bl['source']
+            ecs_obj['threat.indicator.first_seen'] = datetime.strptime(bl.get('first_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['threat.indicator.last_seen'] = datetime.strptime(bl.get('last_seen'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['@timestamp'] = ecs_obj['threat.indicator.last_seen']
+            ecs_obj['threat.indicator.sightings'] = bl.get('count', 1)
+            ecs_obj['threat.indicator.description'] = bl['description']
+            ecs_obj['threat.indicator.provider'] = bl['source']
 
             res = es.index(index=arguments.elastic_index, document=ecs_obj)
 
@@ -316,9 +323,9 @@ for element in elements:
                         "filter": {
                             "bool": {
                                 "must": [
-                                    { "term": { "threatintel.indicator.url.full.keyword": element.get('url') }},
-                                    { "term": { "threatintel.indicator.description.keyword" : bl['description'] }},
-                                    { "term": { "threatintel.indicator.provider.keyword" : bl['source'] }}
+                                    { "term": { "threat.indicator.url.full.keyword": element.get('url') }},
+                                    { "term": { "threat.indicator.description.keyword" : bl['description'] }},
+                                    { "term": { "threat.indicator.provider.keyword" : bl['source'] }}
                                 ]
                             }
                         }
@@ -352,21 +359,21 @@ for element in elements:
                 print("Skipped: " + element.get('url') + " - " + bl['description'] +  " - " + bl['source'])
 
     if element['type'] == 'sample':
-        ecs_obj['threatintel.indicator.type'] = "file"
-        ecs_obj['threatintel.indicator.file.hash.sha256'] = element.get('sha256')
+        ecs_obj['threat.indicator.type'] = "file"
+        ecs_obj['threat.indicator.file.hash.sha256'] = element.get('sha256')
         if element.get('md5'):
-            ecs_obj['threatintel.indicator.file.hash.md5'] = element.get('md5')
+            ecs_obj['threat.indicator.file.hash.md5'] = element.get('md5')
         if element.get('sha512'):
-            ecs_obj['threatintel.indicator.file.hash.sha512'] = element.get('sha512')
+            ecs_obj['threat.indicator.file.hash.sha512'] = element.get('sha512')
         if element.get('filetype'):
-            ecs_obj['threatintel.indicator.file.type'] = element.get('filetype')
+            ecs_obj['threat.indicator.file.type'] = element.get('filetype')
         if element.get('size'):
-            ecs_obj['threatintel.indicator.file.size'] = element.get('size')
+            ecs_obj['threat.indicator.file.size'] = element.get('size')
         if element.get('creation_time'):
-            ecs_obj['threatintel.indicator.first_seen'] = datetime.strptime(element.get('creation_time'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['threat.indicator.first_seen'] = datetime.strptime(element.get('creation_time'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         if element.get('modification_time'):
-            ecs_obj['threatintel.indicator.last_seen'] = datetime.strptime(element.get('modification_time'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            ecs_obj['@timestamp'] = ecs_obj['threatintel.indicator.last_seen']
+            ecs_obj['threat.indicator.last_seen'] = datetime.strptime(element.get('modification_time'), "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            ecs_obj['@timestamp'] = ecs_obj['threat.indicator.last_seen']
 
 
         existing_document_id = None
@@ -377,7 +384,7 @@ for element in elements:
                     "filter": {
                         "bool": {
                             "must": [
-                                { "term": { "threatintel.indicator.file.hash.sha256": element.get('sha256') }},
+                                { "term": { "threat.indicator.file.hash.sha256": element.get('sha256') }},
                             ]
                         }
                     }
@@ -401,10 +408,10 @@ if arguments.delete_old:
     query  = {
         "bool": {
             "must": [
-                { "term": { "threatintel.indicator.dataset.keyword": COLL_OBJ['name'] }},
+                { "term": { "threat.indicator.dataset.keyword": COLL_OBJ['name'] }},
                 {
                     "range": {
-                        "threatintel.indicator.last_seen" : {
+                        "threat.indicator.last_seen" : {
                         "lte": COLL_OBJ['range'] + "/d"
                         }
                     }
