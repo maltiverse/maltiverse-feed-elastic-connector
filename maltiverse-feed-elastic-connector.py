@@ -10,12 +10,17 @@
 
 import argparse
 import json
+import re
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 from elasticsearch import Elasticsearch
 import requests
 
 ECS_VERSION = "8.0.0"
+
+# in example: 'AS27657 Foo Bar Internet Telcom'
+AS_NAME_PATTERN = re.compile(r"^AS(\d+)\s+(.*)$")
+
 
 parser = argparse.ArgumentParser()
 
@@ -148,9 +153,10 @@ for element in elements:
         ecs_obj['threat.indicator.type'] = "ipv4-addr"
         ecs_obj['threat.indicator.ip'] = element['ip_addr']
         ecs_obj['threat.indicator.reference'] = "https://maltiverse.com/ip/" + element['ip_addr']
-        if element.get('as_name'):
-            ecs_obj['threat.indicator.as.number'] = element.get('as_name').split(' ')[0].replace("AS","")
-            ecs_obj['threat.indicator.as.organization.name'] = element.get('threat.indicator.as.organization.name', element.get('as_name').split(' ')[1])
+        if as_name := element.get('as_name'):
+            if matched := AS_NAME_PATTERN.match(as_name):
+                ecs_obj['threat.indicator.as.number'] = matched.groups()[0]
+                ecs_obj['threat.indicator.as.organization.name'] = element.get('threat.indicator.as.organization.name', matched.groups()[1])
         ecs_obj['threat.indicator.geo.city_name'] = element.get('city')
         ecs_obj['threat.indicator.geo.country_iso_code'] = element.get('country_code')
         if element.get('location'):
@@ -200,7 +206,6 @@ for element in elements:
                         existing_document_id = response['hits']['hits'][0]['_id']
 
             if insert:
-                print(ecs_obj)
                 res = es.index(index=arguments.elastic_index, document=ecs_obj, id=existing_document_id)
                 if res['result'] == 'created':
                     COUNT_IP_CREATED += 1
@@ -222,9 +227,10 @@ for element in elements:
         if element.get('tld'):
             ecs_obj['threat.indicator.url.top_level_domain'] = element.get('tld')
         ecs_obj['threat.indicator.reference'] = "https://maltiverse.com/hostname/" + element.get('hostname')
-        if element.get('as_name'):
-            ecs_obj['threat.indicator.as.number'] = element.get('as_name').split(' ')[0].replace("AS","")
-            ecs_obj['threat.indicator.as.organization.name'] = element.get('threat.indicator.as.organization.name', element.get('as_name').split(' ')[1])
+        if as_name := element.get('as_name'):
+            if matched := AS_NAME_PATTERN.match(as_name):
+                ecs_obj['threat.indicator.as.number'] = matched.groups()[0]
+                ecs_obj['threat.indicator.as.organization.name'] = element.get('threat.indicator.as.organization.name', matched.groups()[1])
 
         for bl in element['blacklist']:
             expiration_date = datetime.utcnow() - timedelta(days=int(COLL_OBJ['range'].replace("now-", "").replace("d","")))
