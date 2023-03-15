@@ -1,9 +1,12 @@
 # Maltiverse Feed Elastic Connector
-Connection script to integrate Maltiverse feeds into a Elastic Security instance
+
+Connection script to integrate Maltiverse feeds into a Elastic instance.
+
+Elastic version 7 and 8 are supported by this script
 
 ```
-usage: maltiverse-feed-elastic-connector.py 
-    [-h] 
+usage: maltiverse-feed-elastic-connector.py
+    [-h]
     --maltiverse_email MALTIVERSE_EMAIL
     --maltiverse_password MALTIVERSE_PASSWORD
     --feed MALTIVERSE_FEED

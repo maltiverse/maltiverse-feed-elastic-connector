@@ -20,6 +20,8 @@ import requests
 
 ECS_VERSION = "8.0.0"
 
+ELASTIC_SUPPORTED_VERSIONS = (7, 8)
+
 # in example: 'AS27657 Foo Bar Internet Telcom'
 AS_NAME_PATTERN = re.compile(r"^AS(\d+)\s+(.*)$")
 
@@ -28,7 +30,7 @@ def get_elastic_server_major_version(connection):
     """Ask for the Elastic server major version to check compatibility."""
     version = connection.info().get("version").get("number")
     print(f"Connecting to Elastic Server Version: {version}")
-    return version.split(".")[0] if version else None
+    return int(version.split(".")[0]) if version else None
 
 
 parser = argparse.ArgumentParser()
@@ -136,7 +138,15 @@ es = Elasticsearch(
     basic_auth=(arguments.elastic_username, arguments.elastic_password),
 )
 
-es_version = get_elastic_server_major_version(es)
+if (
+    es_version := get_elastic_server_major_version(es)
+) not in ELASTIC_SUPPORTED_VERSIONS:
+    print(
+        "Detected Elastic version not supported by this script. "
+        f"Only versions {ELASTIC_SUPPORTED_VERSIONS} are supported, "
+        f"detected: {es_version}"
+    )
+    raise SystemExit()
 
 if not es.indices.exists(index=arguments.elastic_index):
     f = open("mappings.json", "r")
