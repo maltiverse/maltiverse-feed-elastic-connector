@@ -208,7 +208,11 @@ print(f"Retrieved elements: {len(elements)}")
 
 # Iterate elements in feed
 print(f"Indexing feed into index: {arguments.elastic_index}")
-for element in tqdm(elements):
+
+# activate progress bar only if we are not in verbose mode
+iter_elements = elements if arguments.verbose else tqdm(elements)
+
+for element in iter_elements:
     # Generating description field
     first_description = True
     description_string = ""
