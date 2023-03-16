@@ -26,6 +26,8 @@ ELASTIC_SUPPORTED_VERSIONS = (7, 8)
 # in example: 'AS27657 Foo Bar Internet Telcom'
 AS_NAME_PATTERN = re.compile(r"^AS(\d+)\s+(.*)$")
 
+DEFAULT_TIME_RANGE = "now-30d"
+
 
 def get_elastic_server_major_version(connection):
     """Ask for the Elastic server major version to check compatibility."""
@@ -75,14 +77,13 @@ parser.add_argument(
 parser.add_argument(
     "--elastic_host",
     dest="elastic_host",
-    default="localhost",
-    help="Specifies elastic database destination hostname. Default 'localhost'",
-)
-parser.add_argument(
-    "--elastic_port",
-    dest="elastic_port",
-    default=9200,
-    help="Specifies elastic database destination hostname port. Default '9200'",
+    default="http://localhost:9200",
+    help=(
+        "Specifies elastic database destination hostname "
+        "(Default 'http://localhost:9200'). "
+        "Argument must include a 'scheme', 'host', and 'port' component "
+        "(ie 'https://localhost:443')"
+    ),
 )
 parser.add_argument(
     "--elastic_username",
@@ -137,6 +138,10 @@ HEADERS = None
 es = Elasticsearch(
     [arguments.elastic_host],
     basic_auth=(arguments.elastic_username, arguments.elastic_password),
+    # no verify SSL certificates
+    verify_certs=False,
+    # don't show warnings about ssl certs verification
+    ssl_show_warn=False,
 )
 
 if (
@@ -187,6 +192,8 @@ if COLL_RESP.status_code != 200:
     raise SystemExit()
 else:
     COLL_OBJ = json.loads(COLL_RESP.text)
+    if "range" not in COLL_OBJ:
+        COLL_OBJ["range"] = DEFAULT_TIME_RANGE
 
 # Apply ranges if specified
 if arguments.maltiverse_range and arguments.maltiverse_range_field:
