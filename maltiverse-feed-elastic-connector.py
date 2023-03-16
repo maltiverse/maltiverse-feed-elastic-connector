@@ -11,15 +11,26 @@
 import argparse
 import json
 import re
+from tqdm import tqdm
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
 from elasticsearch import Elasticsearch
 import requests
 
+
 ECS_VERSION = "8.0.0"
+
+ELASTIC_SUPPORTED_VERSIONS = (7, 8)
 
 # in example: 'AS27657 Foo Bar Internet Telcom'
 AS_NAME_PATTERN = re.compile(r"^AS(\d+)\s+(.*)$")
+
+
+def get_elastic_server_major_version(connection):
+    """Ask for the Elastic server major version to check compatibility."""
+    version = connection.info().get("version").get("number")
+    print(f"Connecting to Elastic Server Version: {version}")
+    return int(version.split(".")[0]) if version else None
 
 
 parser = argparse.ArgumentParser()
@@ -127,12 +138,25 @@ es = Elasticsearch(
     basic_auth=(arguments.elastic_username, arguments.elastic_password),
 )
 
+if (
+    es_version := get_elastic_server_major_version(es)
+) not in ELASTIC_SUPPORTED_VERSIONS:
+    print(
+        "Detected Elastic version not supported by this script. "
+        f"Only versions {ELASTIC_SUPPORTED_VERSIONS} are supported, "
+        f"detected: {es_version}"
+    )
+    raise SystemExit()
 
 if not es.indices.exists(index=arguments.elastic_index):
     f = open("mappings.json", "r")
     # Reading from file
     mapping = json.loads(f.read())
-    es.indices.create(index=arguments.elastic_index, ignore=400, body=mapping)
+    es.options(ignore_status=400).indices.create(
+        index=arguments.elastic_index,
+        mappings=mapping,
+    )
+
 
 COUNT_IP_CREATED = 0
 COUNT_IP_UPDATED = 0
@@ -187,13 +211,18 @@ else:
     FEED_URL = COLLECTION_URL + "/download"
 
 # Download feed
-print("Retrieving feed: " + COLL_OBJ["name"])
+print(f"Retrieving Maltiverse Feed: {COLL_OBJ['name']}")
 DATA = requests.get(FEED_URL, headers=HEADERS)
 elements = json.loads(DATA.text)
-print("Retrieved elements: " + str(len(elements)))
+print(f"Retrieved elements: {len(elements)}")
 
 # Iterate elements in feed
-for element in elements:
+print(f"Indexing feed into index: {arguments.elastic_index}")
+
+# activate progress bar only if we are not in verbose mode
+iter_elements = elements if arguments.verbose else tqdm(elements)
+
+for element in iter_elements:
     # Generating description field
     first_description = True
     description_string = ""
@@ -657,7 +686,9 @@ if arguments.delete_old:
         }
     }
     response_delete = es.delete_by_query(
-        index=arguments.elastic_index, conflicts="proceed", body={"query": query}
+        index=arguments.elastic_index,
+        conflicts="proceed",
+        query=query,
     )
     print("OLD Documents deleted:\t" + str(response_delete["deleted"]))
 
