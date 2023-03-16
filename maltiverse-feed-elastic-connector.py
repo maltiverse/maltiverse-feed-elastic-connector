@@ -75,14 +75,13 @@ parser.add_argument(
 parser.add_argument(
     "--elastic_host",
     dest="elastic_host",
-    default="localhost",
-    help="Specifies elastic database destination hostname. Default 'localhost'",
-)
-parser.add_argument(
-    "--elastic_port",
-    dest="elastic_port",
-    default=9200,
-    help="Specifies elastic database destination hostname port. Default '9200'",
+    default="http://localhost:9200",
+    help=(
+        "Specifies elastic database destination hostname "
+        "(Default 'http://localhost:9200'). "
+        "Argument must include a 'scheme', 'host', and 'port' component "
+        "(ie 'https://localhost:443')"
+    ),
 )
 parser.add_argument(
     "--elastic_username",
@@ -137,6 +136,10 @@ HEADERS = None
 es = Elasticsearch(
     [arguments.elastic_host],
     basic_auth=(arguments.elastic_username, arguments.elastic_password),
+    # no verify SSL certificates
+    verify_certs=False,
+    # don't show warnings about ssl certs verification
+    ssl_show_warn=False,
 )
 
 if (

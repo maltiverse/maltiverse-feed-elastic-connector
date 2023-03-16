@@ -14,7 +14,6 @@ usage: maltiverse-feed-elastic-connector.py
     [--range_field MALTIVERSE_RANGE_FIELD]
     [--feed-expiration-days MALTIVERSE_FEED_EXPIRATION_DAYS]
     [--elastic_host ELASTIC_HOST]
-    [--elastic_port ELASTIC_PORT]
     [--elastic_username ELASTIC_USERNAME]
     [--elastic_password ELASTIC_PASSWORD]
     [--elastic_index ELASTIC_INDEX]
@@ -36,9 +35,9 @@ optional arguments:
   --feed-expiration-days MALTIVERSE_FEED_EXPIRATION_DAYS
                         Specifies the default expiration time in days for the indicators of the selected collection. Default '30'
   --elastic_host ELASTIC_HOST
-                        Specifies elastic database destination hostname. Default 'localhost'
-  --elastic_port ELASTIC_PORT
-                        Specifies elastic database destination hostname port. Default '9200'
+                        Specifies elastic database destination hostname (Default
+                        'http://localhost:9200'). Argument must include a 'scheme', 'host', and
+                        'port' component (ie 'https://localhost:443)'
   --elastic_username ELASTIC_USERNAME
                         Specifies elastic database username.
   --elastic_password ELASTIC_PASSWORD

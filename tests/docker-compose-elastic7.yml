@@ -2,11 +2,10 @@
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
     container_name: elasticsearch7-test
     environment:
-      - ELASTIC_HOST=elasticsearch
-      - ELASTIC_PASSWORD=temporal
-      - ELASTIC_PROTOCOL=http
+      - ELASTIC_USERNAME=elastic
+      - ELASTIC_PASSWORD=verysecretpassword
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - xpack.security.enabled=true
     ports:
       - 9200:9200
