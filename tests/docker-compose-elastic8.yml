@@ -1,0 +1,12 @@
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.6.2
+    container_name: elasticsearch8-test
+    environment:
+      - ELASTIC_HOST=elasticsearch
+      - ELASTIC_PASSWORD=temporal
+      - ELASTIC_PROTOCOL=http
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - 9200:9200
