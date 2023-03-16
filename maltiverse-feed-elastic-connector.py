@@ -26,6 +26,8 @@ ELASTIC_SUPPORTED_VERSIONS = (7, 8)
 # in example: 'AS27657 Foo Bar Internet Telcom'
 AS_NAME_PATTERN = re.compile(r"^AS(\d+)\s+(.*)$")
 
+DEFAULT_TIME_RANGE = "now-30d"
+
 
 def get_elastic_server_major_version(connection):
     """Ask for the Elastic server major version to check compatibility."""
@@ -190,10 +192,8 @@ if COLL_RESP.status_code != 200:
     raise SystemExit()
 else:
     COLL_OBJ = json.loads(COLL_RESP.text)
-
-    # FIXME!
     if "range" not in COLL_OBJ:
-        COLL_OBJ["range"] = "now-30d"
+        COLL_OBJ["range"] = DEFAULT_TIME_RANGE
 
 # Apply ranges if specified
 if arguments.maltiverse_range and arguments.maltiverse_range_field:
