@@ -188,6 +188,10 @@ if COLL_RESP.status_code != 200:
 else:
     COLL_OBJ = json.loads(COLL_RESP.text)
 
+    # FIXME!
+    if "range" not in COLL_OBJ:
+        COLL_OBJ["range"] = "now-30d"
+
 # Apply ranges if specified
 if arguments.maltiverse_range and arguments.maltiverse_range_field:
     FEED_URL = (
