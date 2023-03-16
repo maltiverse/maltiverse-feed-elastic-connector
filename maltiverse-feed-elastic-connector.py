@@ -11,6 +11,7 @@
 import argparse
 import json
 import re
+from collections import defaultdict
 from tqdm import tqdm
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
@@ -158,18 +159,7 @@ if not es.indices.exists(index=arguments.elastic_index):
     )
 
 
-COUNT_IP_CREATED = 0
-COUNT_IP_UPDATED = 0
-COUNT_IP_SKIPPED = 0
-COUNT_HOSTNAME_CREATED = 0
-COUNT_HOSTNAME_UPDATED = 0
-COUNT_HOSTNAME_SKIPPED = 0
-COUNT_URL_CREATED = 0
-COUNT_URL_UPDATED = 0
-COUNT_URL_SKIPPED = 0
-COUNT_SAMPLE_CREATED = 0
-COUNT_SAMPLE_UPDATED = 0
-COUNT_SAMPLE_SKIPPED = 0
+counter = defaultdict(int)
 
 
 # Authentication in Maltiverse service
@@ -327,7 +317,7 @@ for element in iter_elements:
                     id=existing_document_id,
                 )
                 if res["result"] == "created":
-                    COUNT_IP_CREATED += 1
+                    counter["ip_created"] += 1
                     if arguments.verbose:
                         print(
                             "Inserted: "
@@ -338,7 +328,7 @@ for element in iter_elements:
                             + bl["source"]
                         )
                 if res["result"] == "updated":
-                    COUNT_IP_UPDATED += 1
+                    counter["ip_updated"] += 1
                     if arguments.verbose:
                         print(
                             "Updated: "
@@ -349,7 +339,7 @@ for element in iter_elements:
                             + bl["source"]
                         )
             else:
-                COUNT_IP_SKIPPED += 1
+                counter["ip_skipped"] += 1
                 print(
                     "Skipped: "
                     + element.get("ip_addr")
@@ -454,7 +444,7 @@ for element in iter_elements:
                     id=existing_document_id,
                 )
                 if res["result"] == "created":
-                    COUNT_HOSTNAME_CREATED += 1
+                    counter["hostname_created"] += 1
                     if arguments.verbose:
                         print(
                             "Inserted: "
@@ -465,7 +455,7 @@ for element in iter_elements:
                             + bl["source"]
                         )
                 if res["result"] == "updated":
-                    COUNT_HOSTNAME_UPDATED += 1
+                    counter["hostname_updated"] += 1
                     if arguments.verbose:
                         print(
                             "Updated: "
@@ -476,7 +466,7 @@ for element in iter_elements:
                             + bl["source"]
                         )
             else:
-                COUNT_HOSTNAME_SKIPPED += 1
+                counter["hostname_skipped"] += 1
                 print(
                     "Skipped: "
                     + element.get("hostname")
@@ -585,7 +575,7 @@ for element in iter_elements:
                 )
 
                 if res["result"] == "created":
-                    COUNT_URL_CREATED += 1
+                    counter["url_created"] += 1
                     if arguments.verbose:
                         print(
                             "Inserted: "
@@ -596,7 +586,7 @@ for element in iter_elements:
                             + bl["source"]
                         )
                 if res["result"] == "updated":
-                    COUNT_URL_UPDATED += 1
+                    counter["url_updated"] += 1
                     if arguments.verbose:
                         print(
                             "Updated: "
@@ -607,7 +597,7 @@ for element in iter_elements:
                             + bl["source"]
                         )
             else:
-                COUNT_HOSTNAME_SKIPPED += 1
+                counter["hostname_skipped"] += 1
                 print(
                     "Skipped: "
                     + element.get("url")
@@ -664,11 +654,11 @@ for element in iter_elements:
         if insert:
             res = es.index(index=arguments.elastic_index, document=ecs_obj)
             if res["result"] == "created":
-                COUNT_SAMPLE_CREATED += 1
+                counter["sample_created"] += 1
                 if arguments.verbose:
                     print("Inserted: " + element.get("sha256"))
             if res["result"] == "updated":
-                COUNT_SAMPLE_UPDATED += 1
+                counter["sample_updated"] += 1
                 if arguments.verbose:
                     print("Updated: " + element.get("sha256"))
 
@@ -694,25 +684,26 @@ if arguments.delete_old:
 
 es.transport.close()
 
-print("")
-print("###########################################")
-print("IPs Inserted:\t\t" + str(COUNT_IP_CREATED))
-print("IPs Updated:\t\t" + str(COUNT_IP_UPDATED))
-print("IPs Skipped:\t\t" + str(COUNT_IP_SKIPPED))
-print("-------------------------------------------")
-print("Hostnames Inserted:\t" + str(COUNT_HOSTNAME_CREATED))
-print("Hostnames Updated:\t" + str(COUNT_HOSTNAME_UPDATED))
-print("Hostnames Skipped:\t" + str(COUNT_HOSTNAME_SKIPPED))
-print("-------------------------------------------")
-print("URLs Inserted:\t\t" + str(COUNT_URL_CREATED))
-print("URLs Updated:\t\t" + str(COUNT_URL_UPDATED))
-print("URLs Skipped:\t\t" + str(COUNT_URL_SKIPPED))
-print("-------------------------------------------")
-print("SHA256 Inserted:\t" + str(COUNT_SAMPLE_CREATED))
-print("SHA256 Updated:\t\t" + str(COUNT_SAMPLE_UPDATED))
-print("SHA256 Skipped:\t\t" + str(COUNT_SAMPLE_SKIPPED))
-print("-------------------------------------------")
-print("PROCESSED:\t\t" + COLL_OBJ["name"])
-print("-------------------------------------------")
-print("###########################################")
-print("")
+print(
+    f"""
+###########################################"
+PROCESSED:\t\t{COLL_OBJ['name']}
+-------------------------------------------
+IPs Inserted:\t\t{counter['ip_created']}
+IPs Updated:\t\t{counter['ip_updated']}
+IPs Skipped:\t\t{counter['ip_skipped']}
+-------------------------------------------
+Hostnames Inserted:\t{counter['hostname_created']}
+Hostnames Updated:\t{counter['hostname_updated']}
+Hostnames Skipped:\t{counter['hostname_skipped']}
+-------------------------------------------
+URLs Inserted:\t\t{counter['url_created']}
+URLs Updated:\t\t{counter['url_updated']}
+URLs Skipped:\t\t{counter['url_skipped']}
+-------------------------------------------
+SHA256 Inserted:\t{counter['sample_created']}
+SHA256 Updated:\t\t{counter['sample_updated']}
+SHA256 Skipped:\t\t{counter['sample_skipped']}
+###########################################
+"""
+)
