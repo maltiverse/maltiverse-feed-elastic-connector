@@ -134,10 +134,15 @@ session.headers = {
 
 HEADERS = None
 
+if arguments.elastic_password:
+    auth_args = (arguments.elastic_username, arguments.elastic_password)
+else:
+    auth_args = (arguments.elastic_username,)
+
 # Create elastic connection
 es = Elasticsearch(
     [arguments.elastic_host],
-    basic_auth=(arguments.elastic_username, arguments.elastic_password),
+    basic_auth=auth_args,
     # no verify SSL certificates
     verify_certs=False,
     # don't show warnings about ssl certs verification
