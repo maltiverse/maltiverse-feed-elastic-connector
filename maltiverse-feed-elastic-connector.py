@@ -149,9 +149,8 @@ es = Elasticsearch(
     ssl_show_warn=False,
 )
 
-if (
-    es_version := get_elastic_server_major_version(es)
-) not in ELASTIC_SUPPORTED_VERSIONS:
+es_version = get_elastic_server_major_version(es)
+if es_version not in ELASTIC_SUPPORTED_VERSIONS:
     print(
         "Detected Elastic version not supported by this script. "
         f"Only versions {ELASTIC_SUPPORTED_VERSIONS} are supported, "
@@ -246,8 +245,10 @@ for element in iter_elements:
         ecs_obj["threat.indicator.reference"] = (
             "https://maltiverse.com/ip/" + element["ip_addr"]
         )
-        if as_name := element.get("as_name"):
-            if matched := AS_NAME_PATTERN.match(as_name):
+        as_name = element.get("as_name")
+        if as_name:
+            matched = AS_NAME_PATTERN.match(as_name)
+            if matched:
                 ecs_obj["threat.indicator.as.number"] = matched.groups()[0]
                 ecs_obj["threat.indicator.as.organization.name"] = element.get(
                     "threat.indicator.as.organization.name", matched.groups()[1]
@@ -371,8 +372,10 @@ for element in iter_elements:
         ecs_obj[
             "threat.indicator.reference"
         ] = "https://maltiverse.com/hostname/" + element.get("hostname")
-        if as_name := element.get("as_name"):
-            if matched := AS_NAME_PATTERN.match(as_name):
+        as_name = element.get("as_name")
+        if as_name:
+            matched = AS_NAME_PATTERN.match(as_name)
+            if matched:
                 ecs_obj["threat.indicator.as.number"] = matched.groups()[0]
                 ecs_obj["threat.indicator.as.organization.name"] = element.get(
                     "threat.indicator.as.organization.name", matched.groups()[1]
