@@ -1,0 +1,10 @@
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    container_name: elasticsearch7-noauth-test
+    environment:
+      - ELASTIC_USERNAME=elastic
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - xpack.security.enabled=false
+    ports:
+      - 9200:9200
