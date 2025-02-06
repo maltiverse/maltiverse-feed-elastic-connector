@@ -1,5 +1,9 @@
 # Maltiverse Feed Elastic Connector
 
+## Disclaimer
+This connector is only for older versions of ElasticSearch. Elastic versions 8.13.0 or higher should refer to the official integration on the [Elastic Marketplace](https://www.elastic.co/guide/en/integrations/current/ti_maltiverse.html).
+
+
 Connection script to integrate Maltiverse feeds into a Elastic instance.
 
 Elastic version 7 and 8 are supported by this script
